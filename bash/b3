@@ -1,0 +1,43 @@
+#!/bin/bash
+
+# RUN SCRIPT WITH SUDO PERMISIONS
+sudo echo "RUNNING SCRIPT WITH SUDO PERMISSIONS"
+
+# 1. INSTALLING LXD IF NOT ALREADY EXISTS
+if [ -e "/var/snap/lxd" ]; then
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= LXD ALREADY EXISTS"
+else
+    "$(sudo --sh snap install lxd)" && echo "VERBOSE OUTPUT =-=-=-=-=-=-= LXD INSTALLATION COMPLETE"
+fi
+
+# 2. INITIALIZING LXD IF NOT ALREADY DONE
+if [ -e "/sys/class/net/lxdbr0" ]; then
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= LXD NETWORK ALREADY EXISTS"
+else
+    $(lxd init --auto) && echo "VERBOSE OUTPUT =-=-=-=-=-=-= LXDBR0 CREATED"
+fi
+
+# 3. CREATING CONTAINER "COMP2101-S22" IF NOT ALREADY EXISTS
+if [ -e "/var/snap/lxd/common/lxd/storage-pools/default/containers/COMP2101-S22" ]; then
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= COMP2101-S22 CONTAINER ESISTS"
+else
+    "$(lxc launch images:ubuntu/22.04 COMP2101-S22)" && echo "VERBOSE OUTPUT =-=-=-=-=-=-= COMP2101-S22 CREATED"
+    "$(sudo -- sh -c -e "echo '10.200.223.147,COMP2101-S22' >> /var/snap/lxd/common/lxd/networks/lxdbr0/dnsmasq.hosts/COMP2101-S22.eth0")"
+fi
+
+# 4. ASSOCIATE CONTAINER TO THE IP IN THE HOST FILE
+ipTEST="/etc/hosts | grep -q COMP2101-S22"
+if [ -e "$ipTEST" ]; then
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= COMP2101-S22 IS ALREADY ASSOCIATED WITH IP"
+else
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= COMP2101-S22 IS NOT ASSOCIATED WITH IP"
+    $(sudo -- sh -c -e "echo '10.200.223.147		COMP2101-S22' >> /etc/hosts") && echo "VERBOSE OUTPUT =-=-=-=-=-=-= CONTAINER NOW ASSOCIATED WITH IP"
+fi
+
+# 5. INSTALLING APACHE2 ON CONTAINER IF NOT ALREADY EXISTS
+if lxc exec COMP2101-S22 -- apache2 -version | grep -q 'sion: Apache/2'; then
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= Apache2 is installed on Container"
+else
+    lxc exec COMP2101-S22 -- apt install apache2
+    echo "VERBOSE OUTPUT =-=-=-=-=-=-= Installed Apache 2 on container"
+fi
